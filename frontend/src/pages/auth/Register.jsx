@@ -50,7 +50,7 @@ export default function Register() {
       await register(email, password, fullName);
       navigate('/resumes', { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.message || 'Registration failed. Email may already be in use.';
+      const msg = err.response?.data?.message || err.message || 'Registration failed. Email may already be in use.';
       setServerError(msg);
     } finally {
       setLoading(false);

@@ -42,7 +42,7 @@ export default function Login() {
       const origin = location.state?.from?.pathname || '/resumes';
       navigate(origin, { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid email or password. Please try again.';
+      const msg = err.response?.data?.message || err.message || 'Invalid email or password. Please try again.';
       setServerError(msg);
     } finally {
       setLoading(false);
