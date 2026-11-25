@@ -7,11 +7,6 @@ DATE_RANGE_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-SINGLE_DATE_PATTERN = re.compile(
-    r"\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{4})\b",
-    re.IGNORECASE
-)
-
 JOB_ROLE_KEYWORDS = [
     "engineer", "developer", "architect", "analyst", "manager", "specialist",
     "consultant", "intern", "lead", "associate", "assistant", "director",
@@ -33,12 +28,11 @@ REFERENCE_EXCLUSIONS = [
 
 def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem]:
     """
-    Extracts work experience history strictly from the experience section when present.
-    Applies strict negative filters to guarantee that educational degrees, colleges,
-    and reference statements are never categorized as work experience.
-    Correctly merges multi-line headers (e.g. Title on line 1, Dates on line 2).
+    Extracts work experience history with confidence scores and evidence snippets.
+    Correctly merges multi-line headers (Title on line 1, Dates on line 2).
     """
-    target_text = section_text if (section_text and len(section_text.strip()) > 10) else full_text
+    has_dedicated_section = bool(section_text and len(section_text.strip()) > 10)
+    target_text = section_text if has_dedicated_section else full_text
     items: List[ExperienceItem] = []
     lines = [l.strip() for l in target_text.splitlines() if l.strip()]
 
@@ -48,7 +42,6 @@ def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem
     for line in lines:
         lowered_line = line.lower()
 
-        # Strict exclusion: NEVER allow education, references, or contact lines as work experience
         if any(bad in lowered_line for bad in EDUCATION_EXCLUSIONS):
             continue
         if any(bad in lowered_line for bad in REFERENCE_EXCLUSIONS):
@@ -59,7 +52,7 @@ def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem
         date_match = DATE_RANGE_PATTERN.search(line)
         has_job_role = any(re.search(r'\b' + re.escape(role) + r'\b', lowered_line) for role in JOB_ROLE_KEYWORDS)
 
-        # Handle multi-line header: if current_item was created without dates, and this line provides the dates
+        # Multi-line header: if current_item was created without dates, and this line provides them
         if date_match and current_item and not desc_lines and getattr(current_item, '_needs_dates', False):
             current_item.start_date = date_match.group(1)
             current_item.end_date = date_match.group(2)
@@ -67,7 +60,6 @@ def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem
             current_item._needs_dates = False
             continue
 
-        # Check if this line signals a new job entry
         is_job_header = False
         if date_match and (has_job_role or len(line) < 100):
             is_job_header = True
@@ -77,7 +69,6 @@ def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem
         if is_job_header:
             if current_item:
                 current_item.description = "\n".join(desc_lines).strip()
-                # Remove temporary attribute before adding to list
                 if hasattr(current_item, '_needs_dates'):
                     delattr(current_item, '_needs_dates')
                 items.append(current_item)
@@ -88,14 +79,12 @@ def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem
             end_d = date_match.group(2) if date_match else "Present"
             is_curr = "present" in end_d.lower() or "current" in end_d.lower()
 
-            # Clean out date pattern from header to isolate position and company
             cleaned_header = DATE_RANGE_PATTERN.sub("", line).strip(" |-–—,\t")
             cleaned_header = re.sub(r'\|\s*(?:Remote|[A-Za-z\s]+,\s*[A-Z]{2})\b', '', cleaned_header, flags=re.IGNORECASE).strip()
 
             pos = None
             company = None
 
-            # Split by common delimiters ( - , | , at , , )
             for delim in [" - ", " – ", " — ", " | ", " at "]:
                 if delim in cleaned_header:
                     parts = cleaned_header.split(delim, 1)
@@ -122,13 +111,17 @@ def extract_experience(section_text: str, full_text: str) -> List[ExperienceItem
             pos = re.sub(r'^[•\-\*\|\s]+', '', pos).strip()
             company = re.sub(r'^[•\-\*\|\s]+', '', company).strip()
 
+            conf = 0.95 if (date_match and has_job_role) else (0.88 if has_job_role else 0.80)
+
             current_item = ExperienceItem(
                 company=company if company else "Company",
                 position=pos if pos else "Software Engineer",
                 start_date=start_d,
                 end_date=end_d,
                 is_current=is_curr,
-                description=""
+                description="",
+                confidence=conf,
+                evidence=line[:120]
             )
             current_item._needs_dates = needs_dates
         else:

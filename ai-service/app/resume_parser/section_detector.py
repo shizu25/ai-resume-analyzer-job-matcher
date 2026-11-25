@@ -1,5 +1,6 @@
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from app.resume_parser.semantic_classifier import classify_heading_semantically, classify_content_block_semantically
 
 SECTION_KEYWORDS = {
     "summary": [
@@ -56,41 +57,84 @@ SECTION_KEYWORDS = {
     ]
 }
 
-def is_section_header(line: str) -> Optional[str]:
+def is_heading_formatted(line: str) -> bool:
     """
-    Checks if a line looks like a resume section header.
-    Returns the section category or None.
+    Checks if a line displays visual heading formatting cues:
+    - Preceded by markdown markers (#, ##, **), or
+    - All uppercase with 1-6 words, or
+    - Short standalone title line (< 60 chars) without ending sentence punctuation.
+    """
+    cleaned = line.strip()
+    if not cleaned or len(cleaned) > 65:
+        return False
+
+    # Markdown heading or bullet header
+    if cleaned.startswith(("#", "##", "###", "**")) and len(cleaned.split()) <= 6:
+        return True
+
+    # Check for all-caps heading (e.g. "CAREER JOURNEY", "TECH ARSENAL")
+    words = cleaned.split()
+    if len(words) <= 5 and cleaned.isupper() and any(c.isalpha() for c in cleaned):
+        return True
+
+    # Standalone title without periods or sentence delimiters
+    if len(words) <= 5 and not cleaned.endswith((".", ";", ",")):
+        # Title Case check
+        if all(w[0].isupper() for w in words if w and w[0].isalpha()):
+            return True
+
+    return False
+
+def identify_section_heading(line: str, current_section: str = "") -> Tuple[Optional[str], float]:
+    """
+    Identifies if a line is a section heading using:
+    1. Keyword dictionary matching.
+    2. Heading formatting cues + spaCy semantic classification for unfamiliar headings.
+    Returns (canonical_section, confidence_score).
     """
     raw = line.strip()
     if not raw or len(raw) > 65:
-        return None
+        return None, 0.0
 
-    # Strip leading markdown, numbering, bullet points, and trailing punctuation
+    # Strip leading markers and trailing delimiters
     cleaned = re.sub(r'^(?:[0-9\.\-\*\#\•\·\>\s]+)', '', raw).strip()
     cleaned = re.sub(r'[\s:\-\|\/]+$', '', cleaned).strip()
-    
+
     if not cleaned or len(cleaned) < 3:
-        return None
+        return None, 0.0
 
     lowered = cleaned.lower()
 
-    # Match against keywords
+    # Guard: A line containing university/college or job title terms is content, never a section heading
+    if any(k in lowered for k in ["university", "college", "institute", "school of", "academy of"]):
+        return None, 0.0
+    if any(k in lowered for k in ["senior software engineer", "full stack developer", "backend developer", "frontend developer", "project manager"]):
+        return None, 0.0
+
+    # 1. Direct Keyword Dictionary Match
     for sec, keywords in SECTION_KEYWORDS.items():
         for kw in keywords:
-            # Exact match or match with common delimiters (&, and, /, -)
             if lowered == kw:
-                return sec
-            # Allow variations like "Technical Skills & Tools", "Work Experience / History"
+                return sec, 1.0
             pattern = r'^(?:' + re.escape(kw) + r')(?:[\s&/and\-\|\(\)]*[\w\s]{0,20})?$'
             if re.match(pattern, lowered):
-                return sec
+                return sec, 0.95
 
-    return None
+    # 2. Heading Formatting + spaCy Semantic Classification for unfamiliar/creative headings
+    # (e.g. "Where I've Worked", "Toolbox", "Things I Built", "Alma Mater")
+    if is_heading_formatted(raw):
+        semantic_sec, confidence = classify_heading_semantically(cleaned)
+        if semantic_sec and confidence >= 0.65 and semantic_sec != current_section:
+            return semantic_sec, confidence
+
+    return None, 0.0
 
 def detect_sections(text: str) -> Dict[str, str]:
     """
     Splits resume text into recognized functional sections.
-    Returns a dictionary mapping section name to section text.
+    Operates position-independently: sections are populated based on meaning,
+    not their ordering in the resume document (e.g. Skills before Education,
+    Projects before Experience, etc.).
     """
     lines = text.splitlines()
     sections: Dict[str, List[str]] = {
@@ -116,10 +160,18 @@ def detect_sections(text: str) -> Dict[str, str]:
         if not cleaned_line:
             continue
 
-        matched_section = is_section_header(cleaned_line)
+        matched_section, confidence = identify_section_heading(cleaned_line, current_section)
         if matched_section:
             current_section = matched_section
         else:
             sections[current_section].append(cleaned_line)
+
+    # Post-process 'other' section: if content was put in 'other', try semantic classification
+    if sections["other"]:
+        other_text = "\n".join(sections["other"])
+        inferred_sec, conf = classify_content_block_semantically(other_text)
+        if inferred_sec and conf >= 0.80:
+            sections[inferred_sec].extend(sections["other"])
+            sections["other"] = []
 
     return {k: "\n".join(v).strip() for k, v in sections.items()}

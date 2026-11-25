@@ -4,6 +4,8 @@ from typing import List, Optional
 class SkillItem(BaseModel):
     name: str
     category: str = "General"
+    confidence: float = 0.95
+    evidence: Optional[str] = None
 
 class EducationItem(BaseModel):
     institution: Optional[str] = None
@@ -12,6 +14,8 @@ class EducationItem(BaseModel):
     start_year: Optional[int] = None
     end_year: Optional[int] = None
     grade: Optional[str] = None
+    confidence: float = 0.90
+    evidence: Optional[str] = None
 
 class ExperienceItem(BaseModel):
     company: Optional[str] = None
@@ -21,12 +25,16 @@ class ExperienceItem(BaseModel):
     end_date: Optional[str] = None
     is_current: Optional[bool] = False
     description: Optional[str] = None
+    confidence: float = 0.90
+    evidence: Optional[str] = None
 
 class ProjectItem(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     technologies: Optional[str] = None
     link: Optional[str] = None
+    confidence: float = 0.90
+    evidence: Optional[str] = None
 
 class SuggestionItem(BaseModel):
     category: str

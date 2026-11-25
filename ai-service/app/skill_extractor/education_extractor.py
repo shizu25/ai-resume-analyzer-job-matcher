@@ -28,16 +28,14 @@ NON_INSTITUTION_KEYWORDS = [
 def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
     """
     Extracts education history strictly from the education section when available.
-    Applies negative filters to prevent job positions, references, or bullet descriptions
-    from being captured as educational institutions or degrees.
+    Includes evidence snippets and confidence scores.
     """
-    # 1. Scope target text: if education section was found, restrict to it!
-    target_text = section_text if (section_text and len(section_text.strip()) > 10) else full_text
+    has_dedicated_section = bool(section_text and len(section_text.strip()) > 10)
+    target_text = section_text if has_dedicated_section else full_text
     items: List[EducationItem] = []
     lines = [l.strip() for l in target_text.splitlines() if l.strip()]
 
     for i, line in enumerate(lines):
-        # Skip lines that are obviously work experience, references, or headers
         lowered_line = line.lower()
         if any(bad in lowered_line for bad in ["reference", "referee", "available upon request"]):
             continue
@@ -48,10 +46,8 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
             match = re.search(pattern, line, re.IGNORECASE)
             if match:
                 degree_raw = match.group(0).strip()
-                # Clean trailing separators
                 degree_raw = re.sub(r'[\s\|\-\:\,]+$', '', degree_raw).strip()
 
-                # Extract years from line and adjacent lines
                 search_text = line
                 if i + 1 < len(lines):
                     search_text += " " + lines[i+1]
@@ -67,7 +63,6 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
                 elif len(years) == 1:
                     end_yr = int(years[0])
 
-                # Extract field of study (e.g. "in Computer Science")
                 degree_text = degree_raw
                 field = None
                 if " in " in degree_raw.lower():
@@ -75,7 +70,6 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
                     degree_text = parts[0].strip().title()
                     field = parts[1].strip().title()
 
-                # Institution heuristic: line itself (before/after delimiter), or previous/next line
                 institution = None
                 delimiters = [" - ", " | ", ", ", " at "]
                 for delim in delimiters:
@@ -89,7 +83,6 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
                     if institution:
                         break
 
-                # If not found in same line, check adjacent lines
                 if not institution:
                     candidates = []
                     if i > 0:
@@ -99,7 +92,6 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
 
                     for cand in candidates:
                         cand_lower = cand.lower()
-                        # Reject candidates containing work experience or reference terms
                         if any(bad in cand_lower for bad in NON_INSTITUTION_KEYWORDS):
                             continue
                         if any(k in cand_lower for k in INSTITUTION_KEYWORDS) or len(cand.split()) <= 6:
@@ -109,11 +101,13 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
                 if not institution:
                     institution = "University / College"
 
-                # Extract GPA or Grade
                 grade = None
                 grade_match = GRADE_PATTERN.search(search_text)
                 if grade_match:
                     grade = grade_match.group(0).strip()
+
+                # Calculate confidence score based on completeness
+                conf = 0.95 if has_dedicated_section and institution != "University / College" else 0.85
 
                 items.append(EducationItem(
                     institution=institution,
@@ -121,7 +115,9 @@ def extract_education(section_text: str, full_text: str) -> List[EducationItem]:
                     field=field,
                     start_year=start_yr,
                     end_year=end_yr,
-                    grade=grade
+                    grade=grade,
+                    confidence=conf,
+                    evidence=line[:120]
                 ))
                 break
 

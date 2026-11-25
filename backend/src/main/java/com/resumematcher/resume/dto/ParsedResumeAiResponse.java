@@ -1,8 +1,10 @@
 package com.resumematcher.resume.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ParsedResumeAiResponse {
 
     @JsonProperty("candidate_name")
@@ -40,9 +42,13 @@ public class ParsedResumeAiResponse {
 
     public ParsedResumeAiResponse() {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ParsedSkill {
         private String name;
         private String category;
+        private Double confidence;
+        private String evidence;
+
         public ParsedSkill() {}
         public ParsedSkill(String name, String category) {
             this.name = name; this.category = category;
@@ -51,8 +57,13 @@ public class ParsedResumeAiResponse {
         public void setName(String name) { this.name = name; }
         public String getCategory() { return category; }
         public void setCategory(String category) { this.category = category; }
+        public Double getConfidence() { return confidence; }
+        public void setConfidence(Double confidence) { this.confidence = confidence; }
+        public String getEvidence() { return evidence; }
+        public void setEvidence(String evidence) { this.evidence = evidence; }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ParsedEducation {
         private String institution;
         private String degree;
@@ -62,6 +73,9 @@ public class ParsedResumeAiResponse {
         @JsonProperty("end_year")
         private Integer endYear;
         private String grade;
+        private Double confidence;
+        private String evidence;
+
         public ParsedEducation() {}
         public String getInstitution() { return institution; }
         public void setInstitution(String institution) { this.institution = institution; }
@@ -75,8 +89,13 @@ public class ParsedResumeAiResponse {
         public void setEndYear(Integer endYear) { this.endYear = endYear; }
         public String getGrade() { return grade; }
         public void setGrade(String grade) { this.grade = grade; }
+        public Double getConfidence() { return confidence; }
+        public void setConfidence(Double confidence) { this.confidence = confidence; }
+        public String getEvidence() { return evidence; }
+        public void setEvidence(String evidence) { this.evidence = evidence; }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ParsedExperience {
         private String company;
         private String position;
@@ -88,6 +107,9 @@ public class ParsedResumeAiResponse {
         @JsonProperty("is_current")
         private Boolean isCurrent;
         private String description;
+        private Double confidence;
+        private String evidence;
+
         public ParsedExperience() {}
         public String getCompany() { return company; }
         public void setCompany(String company) { this.company = company; }
@@ -103,13 +125,21 @@ public class ParsedResumeAiResponse {
         public void setIsCurrent(Boolean current) { isCurrent = current; }
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
+        public Double getConfidence() { return confidence; }
+        public void setConfidence(Double confidence) { this.confidence = confidence; }
+        public String getEvidence() { return evidence; }
+        public void setEvidence(String evidence) { this.evidence = evidence; }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ParsedProject {
         private String title;
         private String description;
         private String technologies;
         private String link;
+        private Double confidence;
+        private String evidence;
+
         public ParsedProject() {}
         public String getTitle() { return title; }
         public void setTitle(String title) { this.title = title; }
@@ -119,8 +149,13 @@ public class ParsedResumeAiResponse {
         public void setTechnologies(String technologies) { this.technologies = technologies; }
         public String getLink() { return link; }
         public void setLink(String link) { this.link = link; }
+        public Double getConfidence() { return confidence; }
+        public void setConfidence(Double confidence) { this.confidence = confidence; }
+        public String getEvidence() { return evidence; }
+        public void setEvidence(String evidence) { this.evidence = evidence; }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ParsedSuggestion {
         private String category;
         private String priority;

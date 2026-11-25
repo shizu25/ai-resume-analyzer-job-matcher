@@ -24,19 +24,17 @@ AMBIGUOUS_TECH_PATTERNS = {
 
 def extract_skills(skills_section_text: str, full_text: str = "") -> List[SkillItem]:
     """
-    Extracts categorized skills from resume text with high precision.
-    Inside the dedicated Skills section: extracts all matching skills with high recall.
-    Outside the Skills section: uses contextual guardrails to prevent common English
-    words (e.g. 'expressed', 'go to', 'Spring 2022') from falsely matching as tech skills.
+    Extracts categorized skills with confidence scores and evidence snippets.
+    - Inside dedicated skills section: 1.0 confidence.
+    - In general resume text with contextual match: 0.85 confidence.
     """
     found_skills: List[SkillItem] = []
     seen_names: Set[str] = set()
 
     # 1. Process dedicated skills section first (100% confidence zone)
     if skills_section_text and len(skills_section_text.strip()) > 5:
-        # Normalize skill section lines
         clean_section = SEMESTER_PATTERN.sub('', skills_section_text)
-        lowered_section = clean_section.lower()
+        section_lines = [l.strip() for l in clean_section.splitlines() if l.strip()]
 
         for category, skills in SKILL_CATEGORIES.items():
             for skill in skills:
@@ -49,17 +47,23 @@ def extract_skills(skills_section_text: str, full_text: str = "") -> List[SkillI
                 else:
                     pattern = r'\b' + re.escape(skill_lower) + r'\b'
 
-                if re.search(pattern, lowered_section, re.IGNORECASE):
-                    key = skill.lower()
-                    if key not in seen_names:
-                        seen_names.add(key)
-                        found_skills.append(SkillItem(name=skill, category=category))
+                for s_line in section_lines:
+                    if re.search(pattern, s_line, re.IGNORECASE):
+                        key = skill.lower()
+                        if key not in seen_names:
+                            seen_names.add(key)
+                            found_skills.append(SkillItem(
+                                name=skill,
+                                category=category,
+                                confidence=0.98,
+                                evidence=s_line[:120]
+                            ))
+                        break
 
     # 2. Extract from remaining resume text (experience, summary, projects) with strict guardrails
     if full_text:
-        # Strip out academic semesters like "Spring 2021"
         clean_body = SEMESTER_PATTERN.sub('', full_text)
-        lowered_body = clean_body.lower()
+        body_lines = [l.strip() for l in clean_body.splitlines() if l.strip()]
 
         for category, skills in SKILL_CATEGORIES.items():
             for skill in skills:
@@ -67,24 +71,31 @@ def extract_skills(skills_section_text: str, full_text: str = "") -> List[SkillI
                 if key in seen_names:
                     continue
 
-                # If this skill is one of the ambiguous common words, use strict regex
-                if key in AMBIGUOUS_TECH_PATTERNS:
-                    strict_re = AMBIGUOUS_TECH_PATTERNS[key]
-                    if strict_re.search(clean_body):
+                for b_line in body_lines:
+                    matched = False
+                    if key in AMBIGUOUS_TECH_PATTERNS:
+                        strict_re = AMBIGUOUS_TECH_PATTERNS[key]
+                        if strict_re.search(b_line):
+                            matched = True
+                    elif key in ["c++", "c#", ".net", ".net core"]:
+                        pattern = r'(?:^|[\s,;:\(\)\/\-])' + re.escape(key) + r'(?:[\s,;:\(\)\/\-]|$)'
+                        if re.search(pattern, b_line, re.IGNORECASE):
+                            matched = True
+                    elif len(key) <= 2:
+                        continue
+                    else:
+                        pattern = r'\b' + re.escape(key) + r'\b'
+                        if re.search(pattern, b_line, re.IGNORECASE):
+                            matched = True
+
+                    if matched:
                         seen_names.add(key)
-                        found_skills.append(SkillItem(name=skill, category=category))
-                elif key in ["c++", "c#", ".net", ".net core"]:
-                    pattern = r'(?:^|[\s,;:\(\)\/\-])' + re.escape(key) + r'(?:[\s,;:\(\)\/\-]|$)'
-                    if re.search(pattern, lowered_body, re.IGNORECASE):
-                        seen_names.add(key)
-                        found_skills.append(SkillItem(name=skill, category=category))
-                elif len(key) <= 2:
-                    # Skip 1-2 letter acronyms outside skills section unless specifically qualified
-                    continue
-                else:
-                    pattern = r'\b' + re.escape(key) + r'\b'
-                    if re.search(pattern, lowered_body, re.IGNORECASE):
-                        seen_names.add(key)
-                        found_skills.append(SkillItem(name=skill, category=category))
+                        found_skills.append(SkillItem(
+                            name=skill,
+                            category=category,
+                            confidence=0.85,
+                            evidence=b_line[:120]
+                        ))
+                        break
 
     return found_skills
