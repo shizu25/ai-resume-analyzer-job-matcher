@@ -13,13 +13,16 @@ SECTION_KEYWORDS = {
         "areas of expertise", "tools and technologies", "tech stack", "programming skills",
         "key skills", "technical proficiencies", "technical expertise", "it skills",
         "skills and competencies", "skills & tools", "technical skills & tools",
-        "skills & abilities", "skills and tools", "tools & technologies", "competencies"
+        "skills & abilities", "skills and tools", "tools & technologies", "competencies",
+        "languages & tools", "computer skills"
     ],
     "experience": [
         "experience", "work experience", "employment history", "professional experience", 
-        "work history", "career history", "internships", "relevant experience",
-        "work experience & employment history", "professional background", "industry experience",
-        "practical experience", "work background", "employment"
+        "work history", "career history", "internship", "internships", "internship experience",
+        "industrial training", "summer internship", "vocational training", "apprenticeship",
+        "relevant experience", "work experience & employment history", "professional background",
+        "industry experience", "practical experience", "work background", "employment",
+        "training & internship", "intern"
     ],
     "education": [
         "education", "academic background", "academic qualifications", "qualifications", 
@@ -27,15 +30,15 @@ SECTION_KEYWORDS = {
         "education & training", "academic history", "formal education"
     ],
     "projects": [
-        "projects", "academic projects", "key projects", "personal projects", 
+        "projects", "project", "academic projects", "key projects", "personal projects", 
         "selected projects", "technical projects", "projects & highlights",
         "project experience", "notable projects", "portfolio", "featured projects",
-        "software projects"
+        "software projects", "mini projects", "major projects", "capstone project"
     ],
     "certifications": [
-        "certifications", "certificates", "licenses", "courses", "accreditations",
-        "professional certifications", "licenses & certifications", "training & certifications",
-        "credentials"
+        "certifications", "certification", "certificates", "licenses", "courses",
+        "accreditations", "professional certifications", "licenses & certifications",
+        "training & certifications", "credentials", "achievements & certifications"
     ],
     "references": [
         "references", "referees", "recommendations", "references & recommendations",
@@ -52,8 +55,9 @@ SECTION_KEYWORDS = {
         "languages", "language proficiency", "languages known"
     ],
     "volunteer": [
-        "volunteer", "volunteering", "leadership", "community service", "extracurricular",
-        "activities", "extracurricular activities"
+        "volunteer", "volunteering", "volunteering experiences", "volunteering experience",
+        "volunteer experience", "volunteer experiences", "leadership", "community service",
+        "extracurricular", "activities", "extracurricular activities"
     ]
 }
 
@@ -68,18 +72,14 @@ def is_heading_formatted(line: str) -> bool:
     if not cleaned or len(cleaned) > 65:
         return False
 
-    # Markdown heading or bullet header
     if cleaned.startswith(("#", "##", "###", "**")) and len(cleaned.split()) <= 6:
         return True
 
-    # Check for all-caps heading (e.g. "CAREER JOURNEY", "TECH ARSENAL")
     words = cleaned.split()
     if len(words) <= 5 and cleaned.isupper() and any(c.isalpha() for c in cleaned):
         return True
 
-    # Standalone title without periods or sentence delimiters
     if len(words) <= 5 and not cleaned.endswith((".", ";", ",")):
-        # Title Case check
         if all(w[0].isupper() for w in words if w and w[0].isalpha()):
             return True
 
@@ -88,7 +88,7 @@ def is_heading_formatted(line: str) -> bool:
 def identify_section_heading(line: str, current_section: str = "") -> Tuple[Optional[str], float]:
     """
     Identifies if a line is a section heading using:
-    1. Keyword dictionary matching.
+    1. Keyword dictionary matching (including singular forms like INTERNSHIP, PROJECT).
     2. Heading formatting cues + spaCy semantic classification for unfamiliar headings.
     Returns (canonical_section, confidence_score).
     """
@@ -96,7 +96,6 @@ def identify_section_heading(line: str, current_section: str = "") -> Tuple[Opti
     if not raw or len(raw) > 65:
         return None, 0.0
 
-    # Strip leading markers and trailing delimiters
     cleaned = re.sub(r'^(?:[0-9\.\-\*\#\•\·\>\s]+)', '', raw).strip()
     cleaned = re.sub(r'[\s:\-\|\/]+$', '', cleaned).strip()
 
@@ -105,13 +104,12 @@ def identify_section_heading(line: str, current_section: str = "") -> Tuple[Opti
 
     lowered = cleaned.lower()
 
-    # Guard: A line containing university/college or job title terms is content, never a section heading
     if any(k in lowered for k in ["university", "college", "institute", "school of", "academy of"]):
         return None, 0.0
     if any(k in lowered for k in ["senior software engineer", "full stack developer", "backend developer", "frontend developer", "project manager"]):
         return None, 0.0
 
-    # 1. Direct Keyword Dictionary Match
+    # 1. Direct Keyword Dictionary Match (Exact and Prefix)
     for sec, keywords in SECTION_KEYWORDS.items():
         for kw in keywords:
             if lowered == kw:
@@ -120,8 +118,7 @@ def identify_section_heading(line: str, current_section: str = "") -> Tuple[Opti
             if re.match(pattern, lowered):
                 return sec, 0.95
 
-    # 2. Heading Formatting + spaCy Semantic Classification for unfamiliar/creative headings
-    # (e.g. "Where I've Worked", "Toolbox", "Things I Built", "Alma Mater")
+    # 2. Heading Formatting + spaCy Semantic Classification for unfamiliar headings
     if is_heading_formatted(raw):
         semantic_sec, confidence = classify_heading_semantically(cleaned)
         if semantic_sec and confidence >= 0.65 and semantic_sec != current_section:
@@ -131,10 +128,7 @@ def identify_section_heading(line: str, current_section: str = "") -> Tuple[Opti
 
 def detect_sections(text: str) -> Dict[str, str]:
     """
-    Splits resume text into recognized functional sections.
-    Operates position-independently: sections are populated based on meaning,
-    not their ordering in the resume document (e.g. Skills before Education,
-    Projects before Experience, etc.).
+    Splits resume text into recognized functional sections position-independently.
     """
     lines = text.splitlines()
     sections: Dict[str, List[str]] = {
@@ -158,6 +152,9 @@ def detect_sections(text: str) -> Dict[str, str]:
     for line in lines:
         cleaned_line = line.strip()
         if not cleaned_line:
+            # Preserve spacing between items in a section so double-newline separation works
+            if current_section != "header" and sections[current_section] and sections[current_section][-1] != "":
+                sections[current_section].append("")
             continue
 
         matched_section, confidence = identify_section_heading(cleaned_line, current_section)
@@ -166,7 +163,6 @@ def detect_sections(text: str) -> Dict[str, str]:
         else:
             sections[current_section].append(cleaned_line)
 
-    # Post-process 'other' section: if content was put in 'other', try semantic classification
     if sections["other"]:
         other_text = "\n".join(sections["other"])
         inferred_sec, conf = classify_content_block_semantically(other_text)

@@ -29,17 +29,18 @@ SKILL_CATEGORIES: Dict[str, List[str]] = {
     ],
     "AI & Data Science": [
         "Machine Learning", "Deep Learning", "Artificial Intelligence", "NLP", "Natural Language Processing", 
-        "Computer Vision", "TensorFlow", "PyTorch", "Keras", "Scikit-Learn", "Pandas", "NumPy", 
+        "Computer Vision", "OpenCV", "Open CV", "TensorFlow", "PyTorch", "Keras", "Scikit-Learn", "Pandas", "NumPy", 
         "Hugging Face", "LangChain", "LlamaIndex", "OpenAI", "BERT", "Transformers", "Data Analysis", 
-        "Big Data", "Spark", "Hadoop"
+        "Big Data", "Spark", "Hadoop", "Tableau", "Power BI"
     ],
     "Developer Tools & Practices": [
         "Git", "GitHub", "GitLab", "Bitbucket", "Jira", "Postman", "Swagger", "Maven", "Gradle", 
+        "Visual Studio Code", "VS Code", "Excel", "Microsoft Excel", "Arduino",
         "npm", "yarn", "pnpm", "JUnit", "pytest", "Jest", "Cypress", "Selenium", "Agile", "Scrum", 
         "Test-Driven Development", "TDD", "CI/CD Pipeline"
     ],
     "Soft Skills": [
-        "Leadership", "Communication", "Team Collaboration", "Problem Solving", "Critical Thinking", 
+        "Leadership", "Communication", "Team Collaboration", "Team work", "Teamwork", "Problem Solving", "Critical Thinking", 
         "Time Management", "Project Management", "Adaptability", "Mentorship", "Public Speaking", 
         "Negotiation", "Cross-Functional Collaboration", "Analytical Thinking"
     ]
