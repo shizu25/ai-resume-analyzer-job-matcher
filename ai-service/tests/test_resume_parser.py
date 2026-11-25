@@ -176,3 +176,59 @@ def test_precise_skill_matching_avoids_false_positives():
     assert "express" not in names
     assert "spring" not in names
     assert "go" not in names
+
+def test_position_independent_section_ordering():
+    # Reverse ordered resume: Projects -> Skills -> Education -> Experience
+    reversed_resume = """
+    Jordan Lee
+    jordan@example.com | 555-0188 | Seattle, WA
+
+    THINGS I BUILT
+    AI Semantic Matcher | Python, FastAPI
+    https://github.com/jordan/semantic-matcher
+    - Created semantic similarity pipeline.
+
+    TOOLBOX & PROFICIENCIES
+    Python, Java, TypeScript, Docker, Kubernetes, PostgreSQL
+
+    ALMA MATER & STUDIES
+    B.S. in Computer Science - University of Washington
+    2017 - 2021 | GPA: 3.9
+
+    CAREER JOURNEY
+    Full Stack Developer - Acme Corp
+    2021 - Present
+    - Built web services.
+    """
+
+    sections = detect_sections(reversed_resume)
+    assert "projects" in sections
+    assert "skills" in sections
+    assert "education" in sections
+    assert "experience" in sections
+
+    projects = extract_projects(sections.get("projects", ""), reversed_resume)
+    skills = extract_skills(sections.get("skills", ""), reversed_resume)
+    education = extract_education(sections.get("education", ""), reversed_resume)
+    experience = extract_experience(sections.get("experience", ""), reversed_resume)
+
+    assert len(projects) >= 1
+    assert "AI Semantic Matcher" in projects[0].title
+    assert projects[0].confidence >= 0.85
+    assert projects[0].evidence is not None
+
+    skill_names = [s.name for s in skills]
+    assert "Python" in skill_names
+    assert "Docker" in skill_names
+    assert skills[0].confidence >= 0.85
+    assert skills[0].evidence is not None
+
+    assert len(education) >= 1
+    assert "Washington" in (education[0].institution or "")
+    assert education[0].confidence >= 0.85
+    assert education[0].evidence is not None
+
+    assert len(experience) >= 1
+    assert "Acme Corp" in (experience[0].company or "")
+    assert experience[0].confidence >= 0.85
+    assert experience[0].evidence is not None

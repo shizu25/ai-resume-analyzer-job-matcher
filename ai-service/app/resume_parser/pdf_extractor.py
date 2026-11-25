@@ -31,14 +31,26 @@ def _extract_page_text_layout_aware(page) -> str:
     # 2. Check if body blocks form a distinct two-column layout
     best_split = None
     min_cut_blocks = 999
+    total_body_chars = sum(len(b[4].strip()) for b in body_blocks)
 
-    if len(body_blocks) >= 4:
-        for split_x in range(int(0.20 * page_width), int(0.80 * page_width), 15):
+    if len(body_blocks) >= 6 and total_body_chars >= 150:
+        for split_x in range(int(0.25 * page_width), int(0.75 * page_width), 15):
             left = [b for b in body_blocks if b[2] <= split_x + 10]
             right = [b for b in body_blocks if b[0] >= split_x - 10]
             crossing = [b for b in body_blocks if b[0] < split_x - 10 and b[2] > split_x + 10]
 
-            if len(left) >= 2 and len(right) >= 2 and len(crossing) < min_cut_blocks:
+            left_chars = sum(len(b[4].strip()) for b in left)
+            right_chars = sum(len(b[4].strip()) for b in right)
+
+            # Both columns must have substantial text content (at least 15% of body chars each)
+            # and at least 3 distinct blocks each to qualify as a true two-column resume
+            if (
+                len(left) >= 3 and len(right) >= 3 and
+                left_chars >= 0.15 * total_body_chars and
+                right_chars >= 0.15 * total_body_chars and
+                len(crossing) <= 2 and
+                len(crossing) < min_cut_blocks
+            ):
                 min_cut_blocks = len(crossing)
                 best_split = split_x
 
@@ -48,8 +60,8 @@ def _extract_page_text_layout_aware(page) -> str:
         right_blocks = sorted([b for b in body_blocks if b[0] >= best_split], key=lambda b: (b[1], b[0]))
         ordered = sorted(header_blocks, key=lambda b: (b[1], b[0])) + left_blocks + right_blocks
     else:
-        # Single-column / standard layout: sort by y-bands to preserve natural lines
-        ordered = sorted(text_blocks, key=lambda b: (round(b[1] / 8) * 8, b[0]))
+        # Single-column / standard layout: sort by 12pt y-bands to preserve natural lines and align right-hand date chips
+        ordered = sorted(text_blocks, key=lambda b: (round(b[1] / 12) * 12, b[0]))
 
     return "\n\n".join(b[4].strip() for b in ordered if b[4].strip())
 
