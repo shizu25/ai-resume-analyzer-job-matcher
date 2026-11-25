@@ -1,34 +1,90 @@
 import re
-from typing import List
+from typing import List, Set
 from app.schemas.resume_schema import SkillItem
 from app.skill_extractor.skill_dictionary import SKILL_CATEGORIES
 
-def extract_skills(text: str) -> List[SkillItem]:
-    """
-    Extracts categorized skills from resume text.
-    Uses regex boundary matching to prevent substring false-positives.
-    """
-    found_skills = []
-    seen_names = set()
-    lowered_text = text.lower()
+# Semester pattern to exclude academic dates from tech skill matching (e.g. "Spring 2022")
+SEMESTER_PATTERN = re.compile(r'\b(?:Spring|Fall|Summer|Winter)\s+(?:19\d\d|20\d\d)\b', re.IGNORECASE)
 
-    for category, skills in SKILL_CATEGORIES.items():
-        for skill in skills:
-            skill_lower = skill.lower()
-            
-            # Words with special characters like C++, C#, .NET
-            if skill_lower in ["c++", "c#", ".net", ".net core"]:
-                pattern = r'(?:^|[\s,;:\(\)\/\-])' + re.escape(skill_lower) + r'(?:[\s,;:\(\)\/\-]|$)'
-            elif len(skill_lower) <= 2:
-                # E.g. "c", "r", "go" - must have strict boundary
-                pattern = r'\b' + re.escape(skill_lower) + r'\b'
-            else:
-                pattern = r'\b' + re.escape(skill_lower) + r'\b'
+# Ambiguous words that need explicit technical qualifiers when appearing in prose outside the Skills section
+AMBIGUOUS_TECH_PATTERNS = {
+    "spring": re.compile(r'\b(?:Spring\s+(?:Boot|Framework|MVC|Security|Data|Cloud))\b', re.IGNORECASE),
+    "express": re.compile(r'\b(?:Express(?:\.js|js)?|Node(?:\.js)?\s*/\s*Express)\b', re.IGNORECASE),
+    "go": re.compile(r'\b(?:Golang|Go\s+language|Go\s*/\s*Python|Python\s*/\s*Go|in\s+Go\b)\b', re.IGNORECASE),
+    "c": re.compile(r'\b(?:C\s*/\s*C\+\+|C\+\+|C\s+language)\b', re.IGNORECASE),
+    "r": re.compile(r'\b(?:R\s+language|R\s+programming|R\s*/\s*Python|Python\s*/\s*R)\b', re.IGNORECASE),
+    "spark": re.compile(r'\b(?:Apache\s+Spark|PySpark|Spark\s+SQL)\b', re.IGNORECASE),
+    "dart": re.compile(r'\b(?:Dart\s+language|Flutter\s*/\s*Dart|Dart\s*/\s*Flutter)\b', re.IGNORECASE),
+    "rust": re.compile(r'\b(?:Rust\s+language|Rust\s+programming|in\s+Rust)\b', re.IGNORECASE),
+    "echo": re.compile(r'\b(?:Echo\s+framework|Gin\s*/\s*Echo)\b', re.IGNORECASE),
+    "gin": re.compile(r'\b(?:Gin\s+framework|Gin\s+web)\b', re.IGNORECASE),
+    "koa": re.compile(r'\b(?:Koa(?:\.js)?\s+framework)\b', re.IGNORECASE),
+    "git": re.compile(r'\b(?:Git|GitHub|GitLab)\b', re.IGNORECASE),
+}
 
-            if re.search(pattern, lowered_text, re.IGNORECASE):
+def extract_skills(skills_section_text: str, full_text: str = "") -> List[SkillItem]:
+    """
+    Extracts categorized skills from resume text with high precision.
+    Inside the dedicated Skills section: extracts all matching skills with high recall.
+    Outside the Skills section: uses contextual guardrails to prevent common English
+    words (e.g. 'expressed', 'go to', 'Spring 2022') from falsely matching as tech skills.
+    """
+    found_skills: List[SkillItem] = []
+    seen_names: Set[str] = set()
+
+    # 1. Process dedicated skills section first (100% confidence zone)
+    if skills_section_text and len(skills_section_text.strip()) > 5:
+        # Normalize skill section lines
+        clean_section = SEMESTER_PATTERN.sub('', skills_section_text)
+        lowered_section = clean_section.lower()
+
+        for category, skills in SKILL_CATEGORIES.items():
+            for skill in skills:
+                skill_lower = skill.lower()
+
+                if skill_lower in ["c++", "c#", ".net", ".net core"]:
+                    pattern = r'(?:^|[\s,;:\(\)\/\-])' + re.escape(skill_lower) + r'(?:[\s,;:\(\)\/\-]|$)'
+                elif len(skill_lower) <= 2:
+                    pattern = r'(?:^|[\s,;:\(\)\/\-])' + re.escape(skill_lower) + r'(?:[\s,;:\(\)\/\-]|$)'
+                else:
+                    pattern = r'\b' + re.escape(skill_lower) + r'\b'
+
+                if re.search(pattern, lowered_section, re.IGNORECASE):
+                    key = skill.lower()
+                    if key not in seen_names:
+                        seen_names.add(key)
+                        found_skills.append(SkillItem(name=skill, category=category))
+
+    # 2. Extract from remaining resume text (experience, summary, projects) with strict guardrails
+    if full_text:
+        # Strip out academic semesters like "Spring 2021"
+        clean_body = SEMESTER_PATTERN.sub('', full_text)
+        lowered_body = clean_body.lower()
+
+        for category, skills in SKILL_CATEGORIES.items():
+            for skill in skills:
                 key = skill.lower()
-                if key not in seen_names:
-                    seen_names.add(key)
-                    found_skills.append(SkillItem(name=skill, category=category))
+                if key in seen_names:
+                    continue
+
+                # If this skill is one of the ambiguous common words, use strict regex
+                if key in AMBIGUOUS_TECH_PATTERNS:
+                    strict_re = AMBIGUOUS_TECH_PATTERNS[key]
+                    if strict_re.search(clean_body):
+                        seen_names.add(key)
+                        found_skills.append(SkillItem(name=skill, category=category))
+                elif key in ["c++", "c#", ".net", ".net core"]:
+                    pattern = r'(?:^|[\s,;:\(\)\/\-])' + re.escape(key) + r'(?:[\s,;:\(\)\/\-]|$)'
+                    if re.search(pattern, lowered_body, re.IGNORECASE):
+                        seen_names.add(key)
+                        found_skills.append(SkillItem(name=skill, category=category))
+                elif len(key) <= 2:
+                    # Skip 1-2 letter acronyms outside skills section unless specifically qualified
+                    continue
+                else:
+                    pattern = r'\b' + re.escape(key) + r'\b'
+                    if re.search(pattern, lowered_body, re.IGNORECASE):
+                        seen_names.add(key)
+                        found_skills.append(SkillItem(name=skill, category=category))
 
     return found_skills

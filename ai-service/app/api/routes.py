@@ -51,10 +51,15 @@ async def parse_resume(file: UploadFile = File(...)):
     lines = [l.strip() for l in cleaned_text.splitlines() if l.strip()]
     candidate_name = None
     if lines:
-        first_line = lines[0]
-        # Avoid common section headers or URLs as names
-        if len(first_line.split()) <= 4 and not any(k in first_line.lower() for k in ["resume", "curriculum", "http", "@"]):
-            candidate_name = first_line
+        for candidate_line in lines[:3]:
+            # Avoid common section headers, contact lines, or URLs as names
+            cand_lower = candidate_line.lower()
+            if (
+                len(candidate_line.split()) <= 4
+                and not any(k in cand_lower for k in ["resume", "curriculum", "cv", "http", "@", "phone", "email", "summary", "skills", "experience"])
+            ):
+                candidate_name = candidate_line
+                break
 
     summary = sections.get("summary")
     if not summary and len(lines) > 1:
@@ -64,8 +69,8 @@ async def parse_resume(file: UploadFile = File(...)):
                 summary = candidate
                 break
 
-    # Extract Entities
-    skills = extract_skills(sections.get("skills", "") + "\n" + cleaned_text)
+    # Extract Entities with dedicated section targeting and strict negative filters
+    skills = extract_skills(sections.get("skills", ""), cleaned_text)
     education = extract_education(sections.get("education", ""), cleaned_text)
     experience = extract_experience(sections.get("experience", ""), cleaned_text)
     projects = extract_projects(sections.get("projects", ""), cleaned_text)

@@ -98,3 +98,81 @@ def test_suggestion_engine():
     suggestions = analyze_rules(sections, skills, edu, exp, proj)
     # Suggestions should exist and be structured
     assert isinstance(suggestions, list)
+
+def test_no_cross_contamination_between_sections():
+    resume_with_all_sections = """
+    Alex Rivera
+    alex@example.com | 555-0199 | Austin, TX
+    
+    PROFESSIONAL SUMMARY
+    Backend developer with 3 years building web systems.
+    
+    TECHNICAL SKILLS & TOOLS
+    Languages: Python, Java, SQL
+    Frameworks: FastAPI, Spring Boot
+    Databases: PostgreSQL, Redis
+    
+    WORK EXPERIENCE & EMPLOYMENT HISTORY
+    Backend Developer - CloudScale Solutions
+    Jan 2022 - Present
+    - Developed microservices using Python and FastAPI.
+    - Expressed appreciation to team in Spring 2022.
+    
+    EDUCATION & QUALIFICATIONS
+    B.S. in Computer Science - University of Texas at Austin
+    Aug 2018 - May 2022 | GPA: 3.8
+    
+    PROJECTS & HIGHLIGHTS
+    Cloud Task Manager | Python, Redis
+    https://github.com/alex/task-manager
+    - Created asynchronous queue system.
+    
+    REFERENCES & RECOMMENDATIONS
+    Sarah Connor - Director of Engineering at CloudScale
+    sarah@cloudscale.com | 555-0122
+    References available upon request.
+    """
+    
+    sections = detect_sections(resume_with_all_sections)
+    assert "references" in sections
+    assert "education" in sections
+    assert "experience" in sections
+    assert "projects" in sections
+    
+    exp_list = extract_experience(sections.get("experience", ""), resume_with_all_sections)
+    edu_list = extract_education(sections.get("education", ""), resume_with_all_sections)
+    proj_list = extract_projects(sections.get("projects", ""), resume_with_all_sections)
+    
+    # 1. Ensure Education is NOT in Experience
+    for exp in exp_list:
+        assert "University of Texas" not in (exp.company or "")
+        assert "Computer Science" not in (exp.position or "")
+        assert "B.S." not in (exp.position or "")
+    
+    # 2. Ensure Work Experience is NOT in Education
+    for edu in edu_list:
+        assert "CloudScale" not in (edu.institution or "")
+        assert "Backend Developer" not in (edu.degree or "")
+    
+    # 3. Ensure References are NOT in Education or Projects
+    for edu in edu_list:
+        assert "Sarah Connor" not in (edu.institution or "")
+        assert "Sarah Connor" not in (edu.degree or "")
+    for proj in proj_list:
+        assert "Sarah Connor" not in proj.title
+        assert "References" not in proj.title
+        assert "alex@example.com" not in proj.title
+        assert "Languages:" not in proj.title
+    
+    # 4. Ensure only legitimate project is captured
+    assert len(proj_list) == 1
+    assert "Cloud Task Manager" in proj_list[0].title
+
+def test_precise_skill_matching_avoids_false_positives():
+    prose = "He expressed enthusiasm to the team in Spring 2022 and had to go to the store."
+    # Outside skills section, ambiguous words should NOT trigger
+    skills = extract_skills(skills_section_text="", full_text=prose)
+    names = [s.name.lower() for s in skills]
+    assert "express" not in names
+    assert "spring" not in names
+    assert "go" not in names
