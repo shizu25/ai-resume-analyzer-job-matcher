@@ -7,6 +7,10 @@ import Register from './pages/auth/Register';
 import Profile from './pages/profile/Profile';
 import ResumeList from './pages/resumes/ResumeList';
 import ResumeAnalysis from './pages/resumes/ResumeAnalysis';
+import JobsPage from './pages/jobs/JobsPage';
+import JobDetailPage from './pages/jobs/JobDetailPage';
+import ApplicationsPage from './pages/applications/ApplicationsPage';
+import AnalyticsPage from './pages/analytics/AnalyticsPage';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -47,6 +51,10 @@ export default function App() {
             <Route index element={<Navigate to="/resumes" replace />} />
             <Route path="resumes" element={<ResumeList />} />
             <Route path="resumes/:id" element={<ResumeAnalysis />} />
+            <Route path="jobs" element={<JobsPage />} />
+            <Route path="jobs/:id" element={<JobDetailPage />} />
+            <Route path="applications" element={<ApplicationsPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
