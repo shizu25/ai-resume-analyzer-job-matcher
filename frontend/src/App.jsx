@@ -11,6 +11,11 @@ import JobsPage from './pages/jobs/JobsPage';
 import JobDetailPage from './pages/jobs/JobDetailPage';
 import ApplicationsPage from './pages/applications/ApplicationsPage';
 import AnalyticsPage from './pages/analytics/AnalyticsPage';
+import RoadmapsPage from './pages/roadmaps/RoadmapsPage';
+import RoadmapDetailPage from './pages/roadmaps/RoadmapDetailPage';
+import ResumeVersionsPage from './pages/simulator/ResumeVersionsPage';
+import ResumeEditorPage from './pages/simulator/ResumeEditorPage';
+import ResumeComparisonPage from './pages/simulator/ResumeComparisonPage';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -53,6 +58,11 @@ export default function App() {
             <Route path="resumes/:id" element={<ResumeAnalysis />} />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="jobs/:id" element={<JobDetailPage />} />
+            <Route path="roadmaps" element={<RoadmapsPage />} />
+            <Route path="roadmaps/:id" element={<RoadmapDetailPage />} />
+            <Route path="resume-versions" element={<ResumeVersionsPage />} />
+            <Route path="resume-versions/:versionId/edit" element={<ResumeEditorPage />} />
+            <Route path="resume-versions/compare" element={<ResumeComparisonPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="profile" element={<Profile />} />

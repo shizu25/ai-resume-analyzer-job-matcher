@@ -97,4 +97,191 @@
 - `warning_message` (TEXT, NOT NULL)
 - `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
 
-*(Note: Future tables for Member 2 such as `jobs`, `job_skills`, `applications` will link cleanly to `resumes(id)` and `users(id)` without schema collisions).*
+*(Note: Member 2 tables `jobs`, `applications`, `job_match_results` link cleanly to `resumes(id)` and `users(id)`).*
+
+---
+
+## 4. Career Intelligence Platform (V4 Migration)
+
+### 4.1. `skill_roadmaps`
+Stores personalized skill-gap assessment summaries generated against a target job.
+```sql
+CREATE TABLE skill_roadmaps (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
+    overall_coverage_pct DOUBLE PRECISION NOT NULL,
+    demonstrated_skills_count INT NOT NULL DEFAULT 0,
+    mentioned_skills_count INT NOT NULL DEFAULT 0,
+    missing_skills_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT uq_skill_roadmaps_user_job_resume UNIQUE (user_id, job_id, resume_id),
+    CONSTRAINT chk_skill_roadmaps_coverage CHECK (overall_coverage_pct >= 0.0 AND overall_coverage_pct <= 100.0)
+);
+```
+
+### 4.2. `roadmap_items`
+Individual learning milestones categorized into Demonstrated, Mentioned, Missing, or Related with transparent priority scoring and status tracking.
+```sql
+CREATE TABLE roadmap_items (
+    id UUID PRIMARY KEY,
+    roadmap_id UUID NOT NULL REFERENCES skill_roadmaps(id) ON DELETE CASCADE,
+    skill_name VARCHAR(100) NOT NULL,
+    status VARCHAR(50) NOT NULL, -- DEMONSTRATED, MENTIONED, MISSING, RELATED
+    priority VARCHAR(20) NOT NULL, -- HIGH, MEDIUM, LOW
+    priority_reason TEXT NOT NULL,
+    why_required TEXT NOT NULL,
+    learning_objectives TEXT NOT NULL,
+    learning_sequence TEXT NOT NULL,
+    practical_tasks TEXT NOT NULL,
+    suggested_project TEXT NOT NULL,
+    estimated_duration VARCHAR(100) NOT NULL,
+    completion_criteria TEXT NOT NULL,
+    progress_status VARCHAR(30) NOT NULL DEFAULT 'NOT_STARTED', -- NOT_STARTED, IN_PROGRESS, COMPLETED
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+```
+
+### 4.3. `resume_versions`
+Preserves immutable original resumes while tracking editable candidate variants.
+```sql
+CREATE TABLE resume_versions (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
+    version_number INT NOT NULL,
+    version_name VARCHAR(255) NOT NULL,
+    target_job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
+    content_json TEXT NOT NULL,
+    raw_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT uq_resume_versions_parent_number UNIQUE (parent_resume_id, version_number)
+);
+```
+
+### 4.4. `resume_improvement_suggestions`
+Grounded, zero-hallucination suggestions for specific resume versions against target roles.
+```sql
+CREATE TABLE resume_improvement_suggestions (
+    id UUID PRIMARY KEY,
+    version_id UUID NOT NULL REFERENCES resume_versions(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    category VARCHAR(100) NOT NULL,
+    original_text TEXT NOT NULL,
+    suggested_text TEXT NOT NULL,
+    issue TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    related_requirement VARCHAR(255),
+    expected_benefit TEXT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- PENDING, ACCEPTED, REJECTED
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+```
+
+### 4.5. `resume_simulations`
+Dual-version match score comparison records tracking deltas, positive changes, and regressions.
+```sql
+CREATE TABLE resume_simulations (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    base_version_id UUID NOT NULL REFERENCES resume_versions(id) ON DELETE CASCADE,
+    improved_version_id UUID NOT NULL REFERENCES resume_versions(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    base_score DOUBLE PRECISION NOT NULL,
+    improved_score DOUBLE PRECISION NOT NULL,
+    score_delta DOUBLE PRECISION NOT NULL,
+    skill_coverage_base DOUBLE PRECISION NOT NULL,
+    skill_coverage_improved DOUBLE PRECISION NOT NULL,
+    project_relevance_base DOUBLE PRECISION NOT NULL,
+    project_relevance_improved DOUBLE PRECISION NOT NULL,
+    explanation TEXT NOT NULL,
+    positive_changes TEXT NOT NULL,
+    regressions TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+```
+
+
+## Feature Evolution: Career Intelligence Platform (Migration V4)
+
+### 11. `skill_roadmaps`
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL, FOREIGN KEY -> users(id) ON DELETE CASCADE)
+- `job_id` (UUID, NOT NULL, FOREIGN KEY -> jobs(id) ON DELETE CASCADE)
+- `resume_id` (UUID, NOT NULL, FOREIGN KEY -> resumes(id) ON DELETE CASCADE)
+- `overall_coverage_pct` (DOUBLE PRECISION NOT NULL)
+- `demonstrated_skills_count` (INT NOT NULL DEFAULT 0)
+- `mentioned_skills_count` (INT NOT NULL DEFAULT 0)
+- `missing_skills_count` (INT NOT NULL DEFAULT 0)
+- `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+- `updated_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+- **Constraint**: UNIQUE (user_id, job_id, resume_id)
+
+### 12. `roadmap_items`
+- `id` (UUID, PRIMARY KEY)
+- `roadmap_id` (UUID, NOT NULL, FOREIGN KEY -> skill_roadmaps(id) ON DELETE CASCADE)
+- `skill_name` (VARCHAR(100), NOT NULL)
+- `status` (VARCHAR(50), NOT NULL) -- DEMONSTRATED, MENTIONED, MISSING, RELATED
+- `priority` (VARCHAR(20), NOT NULL) -- HIGH, MEDIUM, LOW
+- `priority_reason` (TEXT NOT NULL)
+- `why_required` (TEXT NOT NULL)
+- `learning_objectives` (TEXT NOT NULL, JSON List)
+- `learning_sequence` (TEXT NOT NULL, JSON List)
+- `practical_tasks` (TEXT NOT NULL)
+- `suggested_project` (TEXT NOT NULL)
+- `estimated_duration` (VARCHAR(100), NOT NULL)
+- `completion_criteria` (TEXT NOT NULL)
+- `progress_status` (VARCHAR(30), NOT NULL DEFAULT 'NOT_STARTED') -- NOT_STARTED, IN_PROGRESS, COMPLETED
+- `completed_at` (TIMESTAMP WITH TIME ZONE)
+- `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+- `updated_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+
+### 13. `resume_versions`
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL, FOREIGN KEY -> users(id) ON DELETE CASCADE)
+- `parent_resume_id` (UUID, NOT NULL, FOREIGN KEY -> resumes(id) ON DELETE CASCADE)
+- `version_number` (INT NOT NULL)
+- `version_name` (VARCHAR(255), NOT NULL)
+- `target_job_id` (UUID, FOREIGN KEY -> jobs(id) ON DELETE SET NULL)
+- `content_json` (TEXT NOT NULL)
+- `raw_text` (TEXT NOT NULL)
+- `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+- `updated_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+- **Constraint**: UNIQUE (parent_resume_id, version_number)
+
+### 14. `resume_improvement_suggestions`
+- `id` (UUID, PRIMARY KEY)
+- `version_id` (UUID, NOT NULL, FOREIGN KEY -> resume_versions(id) ON DELETE CASCADE)
+- `job_id` (UUID, NOT NULL, FOREIGN KEY -> jobs(id) ON DELETE CASCADE)
+- `category` (VARCHAR(100), NOT NULL)
+- `original_text` (TEXT NOT NULL)
+- `suggested_text` (TEXT NOT NULL)
+- `issue` (TEXT NOT NULL)
+- `reason` (TEXT NOT NULL)
+- `related_requirement` (VARCHAR(255))
+- `expected_benefit` (TEXT NOT NULL)
+- `status` (VARCHAR(30), NOT NULL DEFAULT 'PENDING') -- PENDING, ACCEPTED, REJECTED
+- `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)
+
+### 15. `resume_simulations`
+- `id` (UUID, PRIMARY KEY)
+- `user_id` (UUID, NOT NULL, FOREIGN KEY -> users(id) ON DELETE CASCADE)
+- `base_version_id` (UUID, NOT NULL, FOREIGN KEY -> resume_versions(id) ON DELETE CASCADE)
+- `improved_version_id` (UUID, NOT NULL, FOREIGN KEY -> resume_versions(id) ON DELETE CASCADE)
+- `job_id` (UUID, NOT NULL, FOREIGN KEY -> jobs(id) ON DELETE CASCADE)
+- `base_score` (DOUBLE PRECISION NOT NULL)
+- `improved_score` (DOUBLE PRECISION NOT NULL)
+- `score_delta` (DOUBLE PRECISION NOT NULL)
+- `skill_coverage_base` (DOUBLE PRECISION NOT NULL)
+- `skill_coverage_improved` (DOUBLE PRECISION NOT NULL)
+- `project_relevance_base` (DOUBLE PRECISION NOT NULL)
+- `project_relevance_improved` (DOUBLE PRECISION NOT NULL)
+- `explanation` (TEXT NOT NULL)
+- `positive_changes` (TEXT NOT NULL, JSON List)
+- `regressions` (TEXT NOT NULL, JSON List)
+- `created_at` (TIMESTAMP WITH TIME ZONE, NOT NULL)

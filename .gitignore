@@ -32,3 +32,6 @@ Thumbs.db
 
 # Environment variables
 .env
+
+# Faculty Presentation Documentation
+docs/FACULTY_PROJECT_EXPLANATION.md

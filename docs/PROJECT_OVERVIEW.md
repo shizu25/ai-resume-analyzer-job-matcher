@@ -23,3 +23,16 @@ The project is organized as a three-tier microservice architecture:
   - Missing Skill Identification & Job Recommendations
   - Application & Interview Tracking
   - Recruitment Analytics Dashboard
+
+## Differentiating Capabilities: Career Intelligence Platform
+Beyond conventional ATS scanning, the platform elevates candidate success with:
+1. **Personalized Skill-Gap Roadmap**:
+   - Evidence-based classification: Demonstrated, Mentioned, Missing, and Related skills.
+   - Transparent, deterministic priority calculation (High, Medium, Low) considering job criticality, semantic relatedness, and learning effort.
+   - Actionable step-by-step milestones with practical exercises, suggested mini-projects, duration estimates, and completion criteria.
+   - Candidate-isolated persistent progress tracking (`NOT_STARTED`, `IN_PROGRESS`, `COMPLETED`).
+2. **Resume Improvement Simulator with Version Comparison**:
+   - Immutable original resume preservation with multi-version branching (`resume_versions`).
+   - Zero-hallucination AI suggestion engine grounded in actual candidate content.
+   - Interactive split-screen editor with single-click revision application and manual overrides.
+   - Dual-version simulation comparison with identical 80/20 scoring algorithm, quantified match score deltas, and automated regression detection.

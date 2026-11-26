@@ -23,6 +23,8 @@ import {
   Trash2,
   Send,
   CheckCircle2,
+  Compass,
+  Layers,
 } from 'lucide-react';
 import {
   WORK_MODE_LABELS,
@@ -259,6 +261,16 @@ export default function JobDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/roadmaps?jobId=${job.id}`}>
+            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200">
+              <Compass className="w-3.5 h-3.5 mr-1.5" /> Skill Roadmap
+            </Button>
+          </Link>
+          <Link to={`/resume-versions?jobId=${job.id}`}>
+            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200">
+              <Layers className="w-3.5 h-3.5 mr-1.5" /> Tailor Version
+            </Button>
+          </Link>
           {job.canEdit && (
             <>
               <Button
@@ -280,6 +292,18 @@ export default function JobDetailPage() {
               </Button>
             </>
           )}
+
+          <Link to="/roadmaps">
+            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200">
+              <Compass className="w-3.5 h-3.5 mr-1.5" /> Skill Roadmap
+            </Button>
+          </Link>
+
+          <Link to="/resume-versions">
+            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200">
+              <Layers className="w-3.5 h-3.5 mr-1.5" /> Tailor Resume
+            </Button>
+          </Link>
 
           {existingApp ? (
             <Link to="/applications">

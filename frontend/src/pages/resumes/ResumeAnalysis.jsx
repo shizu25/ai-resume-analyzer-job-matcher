@@ -25,7 +25,9 @@ import {
   ExternalLink,
   Calendar,
   CheckCircle2,
-  Lightbulb
+  Lightbulb,
+  Compass,
+  Layers,
 } from 'lucide-react';
 
 export default function ResumeAnalysis() {
@@ -165,7 +167,17 @@ export default function ResumeAnalysis() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/roadmaps?resumeId=${resume.id}`}>
+            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200">
+              <Compass className="w-4 h-4 mr-1.5" /> Skill Roadmap
+            </Button>
+          </Link>
+          <Link to={`/resume-versions?resumeId=${resume.id}`}>
+            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200">
+              <Layers className="w-4 h-4 mr-1.5" /> Tailor Version
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={handleDownload}>
             <Download className="w-4 h-4 mr-1.5" /> Download Document
           </Button>

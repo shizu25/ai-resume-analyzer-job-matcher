@@ -10,6 +10,18 @@ from app.skill_extractor.education_extractor import extract_education
 from app.skill_extractor.experience_extractor import extract_experience
 from app.skill_extractor.project_extractor import extract_projects
 from app.suggestion_engine.llm_suggester import get_suggestions
+from app.schemas.resume_schema import (
+    ResumeParseResponse,
+    RoadmapGenerateRequest,
+    RoadmapGenerateResponse,
+    ImprovementSuggestionsRequest,
+    ImprovementSuggestionsResponse,
+    SimulationCompareRequest,
+    SimulationCompareResponse
+)
+from app.roadmap_engine.roadmap_generator import generate_roadmap
+from app.simulator_engine.suggestion_generator import generate_suggestions
+from app.simulator_engine.version_comparator import compare_versions
 
 router = APIRouter()
 
@@ -91,3 +103,17 @@ async def parse_resume(file: UploadFile = File(...)):
         suggestions=suggestions,
         warnings=warnings
     )
+
+@router.post("/roadmap/generate", response_model=RoadmapGenerateResponse)
+async def create_skill_roadmap(request: RoadmapGenerateRequest):
+    return generate_roadmap(request)
+
+@router.post("/simulator/suggestions", response_model=ImprovementSuggestionsResponse)
+async def create_improvement_suggestions(request: ImprovementSuggestionsRequest):
+    suggestions = generate_suggestions(request)
+    return ImprovementSuggestionsResponse(suggestions=suggestions)
+
+@router.post("/simulator/simulate", response_model=SimulationCompareResponse)
+async def simulate_version_comparison(request: SimulationCompareRequest):
+    return compare_versions(request)
+

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FileText, User, Briefcase, Sparkles, Send, BarChart2 } from 'lucide-react';
+import { FileText, User, Briefcase, Sparkles, Send, BarChart2, Compass, Layers, GitCompare } from 'lucide-react';
 
 export default function Sidebar() {
   const location = useLocation();
@@ -10,6 +10,29 @@ export default function Sidebar() {
   const member1Links = [
     { name: 'My Resumes', to: '/resumes', icon: FileText },
     { name: 'User Profile', to: '/profile', icon: User },
+  ];
+
+  const intelligenceLinks = [
+    {
+      name: 'Skill Roadmaps',
+      to: '/roadmaps',
+      icon: Compass,
+      isActive: () => location.pathname.startsWith('/roadmaps'),
+    },
+    {
+      name: 'Resume Simulator',
+      to: '/resume-versions',
+      icon: Layers,
+      isActive: () =>
+        location.pathname === '/resume-versions' ||
+        (location.pathname.startsWith('/resume-versions/') && !location.pathname.includes('/compare')),
+    },
+    {
+      name: 'Score Comparison',
+      to: '/resume-versions/compare',
+      icon: GitCompare,
+      isActive: () => location.pathname === '/resume-versions/compare',
+    },
   ];
 
   const member2Links = [
@@ -69,12 +92,37 @@ export default function Sidebar() {
         </div>
 
         <div>
+          <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-indigo-500 mb-2">
+            Career Intelligence
+          </p>
+          <nav className="space-y-1">
+            {intelligenceLinks.map((item) => {
+              const active = item.isActive ? item.isActive() : location.pathname === item.to;
+              return (
+                <NavLink
+                  key={item.name}
+                  to={item.to}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 shrink-0 text-indigo-600" />
+                  <span>{item.name}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div>
           <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Job Matcher & Career
+            Job Matcher & Tracking
           </p>
           <nav className="space-y-1">
             {member2Links.map((item) => {
-              const active = item.isActive();
+              const active = item.isActive ? item.isActive() : location.pathname === item.to;
               return (
                 <NavLink
                   key={item.name}
@@ -95,8 +143,8 @@ export default function Sidebar() {
       </div>
 
       <div className="p-4 border-t border-slate-100 text-xs text-slate-400">
-        <p className="font-semibold text-slate-600">AI Resume Analyzer v1.0</p>
-        <p className="text-[11px] text-slate-400 mt-0.5">Full-Stack Career Workspace</p>
+        <p className="font-semibold text-slate-600">AI Resume Analyzer v2.0</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">Career Intelligence Platform</p>
       </div>
     </aside>
   );
